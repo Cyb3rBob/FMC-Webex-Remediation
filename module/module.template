@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<module name="SendWebexMessage">
+    <global_config>
+        <display_name>Remediation Action send Webex Message</display_name>
+        <description>Send a Webex space notification when an FMC correlation policy triggers this remediation.</description>
+        <binary>send_webex_message.py</binary>
+        <version>1.3</version>
+    </global_config>
+
+    <config_template>
+        <password>
+            <name>WEBEX_TOKEN</name>
+            <display_name>Enter the Webex Bot Token</display_name>
+        </password>
+        <string>
+            <name>WEBEX_ROOM_ID</name>
+            <display_name>Enter Webex Room ID</display_name>
+        </string>
+        <string required="false">
+            <name>WEBEX_MESSAGE</name>
+            <display_name>Enter any title message</display_name>
+        </string>
+        <string required="false">
+            <name>WEBEX_PROXY_URL</name>
+            <display_name>Optional HTTP proxy URL (http://proxy.example.com:8080)</display_name>
+        </string>
+    </config_template>
+
+    <remediation_type name="send_webex_message">
+        <display_name>Send Webex Message</display_name>
+        <policy_event_data>
+            <pe_item required="false">src_os_vendor</pe_item>
+            <pe_item required="false">src_os_product</pe_item>
+            <pe_item required="false">src_os_version</pe_item>
+        </policy_event_data>
+    </remediation_type>
+
+    <exit_status value="129">Failed to send Webex Message</exit_status>
+    <exit_status value="130">Invalid Webex remediation configuration or arguments</exit_status>
+    <exit_status value="131">Webex authentication or permission failed</exit_status>
+    <exit_status value="132">Webex connection failed or timed out</exit_status>
+    <exit_status value="133">Webex TLS or CA certificate failure</exit_status>
+    <exit_status value="134">Webex API rate limit exceeded</exit_status>
+</module>

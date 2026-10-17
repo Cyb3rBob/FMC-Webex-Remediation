@@ -1,0 +1,4 @@
+*.py text eol=lf
+*.template text eol=lf
+*.pem text eol=lf
+*.md text eol=lf
