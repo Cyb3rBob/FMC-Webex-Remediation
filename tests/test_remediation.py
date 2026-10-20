@@ -147,8 +147,37 @@ class RemediationTests(unittest.TestCase):
 
     def test_excess_args_rejected(self):
         with patch.object(app, "send_webex_message") as send:
-            self.assertEqual(self.run_main("NotifyWebex", "a", "b", "c", "d")[0], 130)
+            self.assertEqual(self.run_main("NotifyWebex", "a", "b", "c", "d", "e")[0], 130)
         send.assert_not_called()
+
+    def test_source_ip_preserves_os_positions(self):
+        for address in ("192.0.2.25", "2001:db8::25"):
+            with self.subTest(address=address):
+                message = app.build_message("", "NotifyWebex", ["Cisco", "Linux", "9", address])
+                self.assertIn("**Source IP:** " + address, message)
+                self.assertIn("**OS Vendor:** Cisco", message)
+                self.assertIn("**OS Product:** Linux", message)
+                self.assertIn("**OS Version:** 9", message)
+
+    def test_missing_source_ip_always_has_placeholder(self):
+        for values in ([], ["Cisco", "Linux", "9"]):
+            self.assertIn("**Source IP:** " + app.markdown_value("IP-not-identified"),
+                          app.build_message("", "NotifyWebex", values))
+        for missing in ("", "undefined", "NULL", "(null)", "  undefined  ", " "):
+            with self.subTest(missing=missing):
+                message = app.build_message("", "NotifyWebex", ["undefined", "Linux", "9", missing])
+                self.assertIn("**Source IP:** " + app.markdown_value("IP-not-identified"), message)
+                self.assertIn("**OS Product:** Linux", message)
+                self.assertNotIn("OS Vendor", message)
+
+    def test_source_ip_reaches_webex_payload(self):
+        with patch.object(app, "build_opener") as factory:
+            factory.return_value.open.return_value.__enter__.return_value.getcode.return_value = 201
+            code, out, err = self.run_main("NotifyWebex", "undefined", "undefined", "undefined", "192.0.2.25")
+        self.assertEqual(code, 0)
+        payload = json.loads(factory.return_value.open.call_args.args[0].data)
+        self.assertIn("**Source IP:** 192.0.2.25", payload["markdown"])
+        self.assertNotIn("OS Vendor", payload["markdown"])
 
     def test_unicode_length_and_markup(self):
         message = app.build_message("<@all> [link](url)", "NotifyWebex", ["\u96ea" * 3000])
@@ -223,10 +252,10 @@ class RemediationTests(unittest.TestCase):
     def test_template_contract(self):
         root = ET.parse(str(ROOT / "module/module.template")).getroot()
         fields = root.findall("remediation_type/policy_event_data/pe_item")
-        self.assertEqual([field.text for field in fields], ["src_os_vendor", "src_os_product", "src_os_version"])
+        self.assertEqual([field.text for field in fields], ["src_os_vendor", "src_os_product", "src_os_version", "src_ip_addr"])
         self.assertTrue(all(field.get("required") == "false" for field in fields))
         self.assertEqual(root.findtext("config_template/password/name"), "WEBEX_TOKEN")
-        self.assertEqual(root.findtext("global_config/version"), "1.3")
+        self.assertEqual(root.findtext("global_config/version"), "1.4")
         self.assertEqual(root.find("config_template/string[name='WEBEX_PROXY_URL']").get("required"), "false")
         self.assertEqual({int(item.get("value")) for item in root.findall("exit_status")}, set(range(129, 135)))
 
@@ -253,10 +282,11 @@ class RemediationTests(unittest.TestCase):
         (instance / "instance.conf").write_bytes(self.config.read_bytes())
         # -S disables site-packages; only the packaged script and stdlib are present.
         result = subprocess.run([sys.executable, "-B", "-S", "../send_webex_message.py",
-                                 "--dry-run", "NotifyWebex", "Cisco", "Linux", "9"],
+                                 "--dry-run", "NotifyWebex", "Cisco", "Linux", "9", "192.0.2.25"],
                                 cwd=str(instance), capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("OS Vendor", result.stdout)
+        self.assertIn("**Source IP:** 192.0.2.25", result.stdout)
         self.assertNotIn("EXAMPLE_TOKEN", result.stdout + result.stderr)
 
 

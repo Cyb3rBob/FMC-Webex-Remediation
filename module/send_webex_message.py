@@ -19,7 +19,8 @@ CA_FILE = os.path.join(SCRIPT_DIR, "lib", "cacert.pem")
 WEBEX_URL = "https://webexapis.com/v1/messages"
 TIMEOUT = 15
 REMEDIATION_TYPE = "send_webex_message"
-EVENT_LABELS = ("OS Vendor", "OS Product", "OS Version")
+EVENT_LABELS = ("OS Vendor", "OS Product", "OS Version", "Source IP")
+MISSING_VALUES = ("", "undefined", "null", "(null)")
 
 EXIT_SUCCESS = 0
 EXIT_FAILURE = 129
@@ -109,8 +110,13 @@ def build_message(title, remediation_name, event_values):
     title = title or "Cisco FMC Correlation Event Remediation Triggered"
     lines = ["### " + markdown_value(title),
              "", "**Remediation:** " + markdown_value(remediation_name)]
-    for label, value in zip(EVENT_LABELS, event_values):
-        if value.strip().lower() in ("", "undefined", "null", "(null)"):
+    # Append src_ip_addr in the template to preserve the original OS positions.
+    source_ip = event_values[3].strip() if len(event_values) > 3 else ""
+    if source_ip.lower() in MISSING_VALUES:
+        source_ip = "IP-not-identified"
+    lines.append("- **Source IP:** " + markdown_value(source_ip))
+    for label, value in zip(EVENT_LABELS[:3], event_values[:3]):
+        if value.strip().lower() in MISSING_VALUES:
             continue
         lines.append("- **{}:** {}".format(label, markdown_value(value)))
     message = "\n".join(lines)
@@ -189,7 +195,7 @@ def main(argv=None):
     parser.add_argument("--config", default="instance.conf", help="FMC instance XML path")
     parser.add_argument("--dry-run", action="store_true", help="Validate and show message without sending")
     parser.add_argument("remediation_name", help="Configured remediation action name passed by FMC")
-    parser.add_argument("event_values", nargs=argparse.REMAINDER, help="OS vendor, product, version, in template order")
+    parser.add_argument("event_values", nargs=argparse.REMAINDER, help="OS vendor, product, version, source IP, in template order")
     args = parser.parse_args(argv)
     if len(args.event_values) > len(EVENT_LABELS):
         return report("Too many event fields. Use the module.template shipped with this script.", EXIT_CONFIG)

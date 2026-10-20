@@ -4,7 +4,7 @@
         <display_name>Remediation Action send Webex Message</display_name>
         <description>Send a Webex space notification when an FMC correlation policy triggers this remediation.</description>
         <binary>send_webex_message.py</binary>
-        <version>1.3</version>
+        <version>1.4</version>
     </global_config>
 
     <config_template>
@@ -32,6 +32,7 @@
             <pe_item required="false">src_os_vendor</pe_item>
             <pe_item required="false">src_os_product</pe_item>
             <pe_item required="false">src_os_version</pe_item>
+            <pe_item required="false">src_ip_addr</pe_item>
         </policy_event_data>
     </remediation_type>
 

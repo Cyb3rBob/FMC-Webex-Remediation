@@ -1,8 +1,22 @@
 # FMC Webex remediation module
 
-Version 1.3 targets the reported FMC 7.6 environment with Python 3.9.9.
+Version 1.4 targets the reported FMC 7.6 environment with Python 3.9.9.
 It posts a message to a Webex space when an associated correlation rule triggers.
 No third-party Python packages or pip installation on FMC are required.
+
+## Version 1.4: source IP address
+
+Every message now includes **Source IP**. The module requests Cisco's optional
+`src_ip_addr` event field, as documented in the
+[source host data reference](https://www.cisco.com/c/en/us/td/docs/security/firepower/60/api/remediation/FireSIGHT-System-Remediation-API-Guide/WritingRemedClients.html).
+Missing, blank, `undefined`, `null`, or `(null)` values display
+`IP-not-identified`. Missing IP information never prevents the notification.
+
+The source IP is the fourth event argument, after OS vendor, product, and
+version. Existing three-field manual commands still work and show the fallback.
+Install the complete version 1.4 archive and configure a new instance/action,
+including the proxy URL if needed, then update the correlation rule response.
+The script and template must be upgraded together for FMC to supply the new field.
 
 ## Version 1.3: optional proxy configuration
 
@@ -21,7 +35,7 @@ paths (other than `/`), queries, or fragments are rejected before sending.
 An HTTP proxy can carry HTTPS traffic; `http://` describes the connection to
 the proxy, not the connection to Webex inside the tunnel.
 
-Install `dist/SendWebexMessage-1.3.tar.gz`, create a version 1.3 instance/action,
+Install `dist/SendWebexMessage-1.4.tar.gz`, create a version 1.4 instance/action,
 and populate its proxy field along with the existing Webex settings. Test it
 manually before updating correlation rule responses to use the new action.
 The existing version 1.2 archive is retained.
@@ -53,7 +67,7 @@ continues to reference that Remediation API Guide for custom modules.
 
 ## Build and install
 
-A ready-to-upload archive is generated at `dist/SendWebexMessage-1.3.tar.gz`,
+A ready-to-upload archive is generated at `dist/SendWebexMessage-1.4.tar.gz`,
 with a SHA-256 file beside it. To rebuild on a workstation with Python 3.9+:
 
 ```sh
@@ -85,8 +99,8 @@ lib/README.md
 4. Within that instance, add a remediation of type **Send Webex Message**,
    for example named `NotifyWebex`, and save it.
 5. Add that remediation as a response to the intended correlation rule and
-   activate the correlation policy. If replacing a 1.1 installation, create the
-   new instance/action and update the rule response to use version 1.3.
+   activate the correlation policy. If replacing an older installation, create the
+   new instance/action and update the rule response to use version 1.4.
 6. Trigger one controlled event. Confirm a message in the space and inspect
    **Analysis > Correlation > Status** (the Remediation Status workflow) for
    the outcome, as described in Cisco's
@@ -102,7 +116,7 @@ to the remediation process; do not assume FMC's GUI proxy setting is inherited.
 On your workstation, this uses dummy credentials and makes no network request:
 
 ```sh
-python3 module/send_webex_message.py --config examples/instance.conf --dry-run NotifyWebex Cisco Linux 9
+python3 module/send_webex_message.py --config examples/instance.conf --dry-run NotifyWebex Cisco Linux 9 192.0.2.25
 python3 -B -m unittest discover -s tests -v
 ```
 
@@ -110,8 +124,8 @@ For a dry-run on FMC, enter expert mode and change to the actual installed
 instance directory. For the example names above, the documented path is:
 
 ```sh
-cd /var/sf/remediation/SendWebexMessage_1.3/WebexAlerts
-../send_webex_message.py --dry-run NotifyWebex Cisco Linux 9
+cd /var/sf/remediation/SendWebexMessage_1.4/WebexAlerts
+../send_webex_message.py --dry-run NotifyWebex Cisco Linux 9 192.0.2.25; echo "Exit code: $?"
 ```
 
 Use the directory and action name FMC actually created. The first positional
@@ -123,14 +137,14 @@ token, space membership, network connectivity, or actual API delivery.
 To send one manual test message from the same instance directory:
 
 ```sh
-../send_webex_message.py NotifyWebex Cisco Linux 9; echo "Exit code: $?"
+../send_webex_message.py NotifyWebex Cisco Linux 9 192.0.2.25; echo "Exit code: $?"
 ```
 
 You can also test missing discovery information with
-`../send_webex_message.py NotifyWebex undefined undefined undefined`.
-This sends a message containing the title and action name without OS fields.
-The module retains the original three OS fields; it does not request source
-addresses, destination addresses, or the triggering event description.
+`../send_webex_message.py NotifyWebex undefined undefined undefined undefined`.
+This sends a message containing the title, action name, and
+`Source IP: IP-not-identified`, without OS fields. The module does not request
+destination addresses or the triggering event description.
 
 ## Troubleshooting and limits
 
@@ -165,6 +179,9 @@ and oversized messages are truncated.
 
 ## Review and validation performed
 
+- Version 1.4: all 26 local tests passed, including IPv4/IPv6 text, omitted and undefined source IPs,
+  preservation of OS field positions, source IP in the outgoing Webex payload,
+  and the updated four-field template and packaged dry-run.
 - Version 1.3: all 23 local tests pass, including configured proxy selection,
   legacy configurations without a proxy field, invalid proxy redaction,
   dry-run reporting, and the existing archive/standard-library checks.
